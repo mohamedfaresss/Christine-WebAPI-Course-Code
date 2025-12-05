@@ -7,25 +7,28 @@ using WebAPIDotNet.Model;
 
 namespace WebAPIDotNet.Controllers
 {
-    [Route("api/[controller]")]//api/Department
+    [Route("api/[controller]")] // api/Department
     [ApiController]
     public class DepartmentController : ControllerBase
     {
-        itiContext context;
+        private readonly itiContext context;
+
         public DepartmentController(itiContext _context)
         {
             context = _context;
         }
 
+        // Get departments with employee count (Requires Authorization)
         [Authorize]
         [HttpGet("p")]
         public ActionResult<List<DeptWithEmpCountDto>> GetDeptDetails()
         {
-                List<Department> deptlist=
-                context.Departmwnt.Include(d=>d.Emps).ToList();
+            List<Department> deptList =
+                context.Departmwnt.Include(d => d.Emps).ToList();
+
             List<DeptWithEmpCountDto> deptListDto = new List<DeptWithEmpCountDto>();
 
-            foreach (Department item in deptlist)
+            foreach (Department item in deptList)
             {
                 DeptWithEmpCountDto deptDto = new DeptWithEmpCountDto();
                 deptDto.ID = item.Id;
@@ -33,63 +36,63 @@ namespace WebAPIDotNet.Controllers
                 deptDto.EmpCount = item.Emps.Count();
                 deptListDto.Add(deptDto);
             }
+
             return deptListDto;
+        }
 
-}
-
-        [HttpGet]//api/Department
+        // Get all departments
+        [HttpGet] // api/Department
         public IActionResult Displatdept()
         {
-            List<Department> deptlist =
-            context.Departmwnt.ToList();
+            List<Department> deptlist = context.Departmwnt.ToList();
             return Ok(deptlist);
         }
 
-
+        // Get department by ID
         [HttpGet("{id:int}")]
-        //[Route("{id}")] // api/Department/1
         public IActionResult GetById(int id)
         {
             Department dept =
-            context.Departmwnt.FirstOrDefault(d => d.Id == id);
+                context.Departmwnt.FirstOrDefault(d => d.Id == id);
+
             return Ok(dept);
-
-
         }
 
+        // Get department by name
         [HttpGet("{name:alpha}")]
         public IActionResult GetByName(string name)
         {
-
             Department dept =
-            context.Departmwnt.FirstOrDefault(d => d.Name == name);
-            return Ok(dept);
+                context.Departmwnt.FirstOrDefault(d => d.Name == name);
 
+            return Ok(dept);
         }
-        // api/Department post
-        [HttpPost]
+
+        // Add new department
+        [HttpPost] // api/Department
         public IActionResult AddDept(Department dept)
         {
             context.Departmwnt.Add(dept);
             context.SaveChanges();
-            //  return Ok();//200
-            // return Created($"http://localhost:65427/api/Department{dept.Id}",dept);//201
+
             return CreatedAtAction("GetById", new { id = dept.Id }, dept);
         }
 
-
-
+        // Update department by ID
         [HttpPut("{id:int}")]
         public IActionResult Updatedept(int id, Department deptFromRequest)
         {
             Department departmentFromDB =
-            context.Departmwnt.FirstOrDefault(d => d.Id == id);
+                context.Departmwnt.FirstOrDefault(d => d.Id == id);
+
             if (departmentFromDB != null)
             {
                 departmentFromDB.Name = deptFromRequest.Name;
                 departmentFromDB.MangerName = deptFromRequest.MangerName;
+
                 context.SaveChanges();
-                return NoContent(); // NoContent ده عندي هو ال DEFAULT في ال PUT - DELETE
+
+                return NoContent(); // NoContent: default response for PUT/DELETE
             }
             else
             {
@@ -97,7 +100,7 @@ namespace WebAPIDotNet.Controllers
             }
         }
 
-        //[HttpDelete]
-        //public IActionResult Deletedept();
+        // [HttpDelete]
+        // public IActionResult Deletedept();
     }
 }

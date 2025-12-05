@@ -18,103 +18,92 @@ namespace WebAPIDotNet.Controllers
         private readonly UserManager<ApplicationUser> userManager;
         private readonly IConfiguration config;
 
-        public AccountController(UserManager<ApplicationUser> UserManager , IConfiguration config)
+        public AccountController(UserManager<ApplicationUser> UserManager, IConfiguration config)
         {
             userManager = UserManager;
             this.config = config;
         }
 
-        [HttpPost("Register")]//api/Account/Register
-        public async Task<IActionResult> Register(RegisterDto UserFromReguest)
+        // Register new user
+        [HttpPost("Register")] // api/Account/Register
+        public async Task<IActionResult> Register(RegisterDto userFromRequest)
         {
             if (ModelState.IsValid)
             {
-
                 ApplicationUser user = new ApplicationUser();
-                user.UserName = UserFromReguest.UserName;
-                user.Email = UserFromReguest.Email;
+                user.UserName = userFromRequest.UserName;
+                user.Email = userFromRequest.Email;
+
                 IdentityResult result =
-                    await userManager.CreateAsync(user, UserFromReguest.Password);
+                    await userManager.CreateAsync(user, userFromRequest.Password);
+
                 if (result.Succeeded)
                 {
                     return Ok("Created");
-
                 }
+
                 foreach (var item in result.Errors)
                 {
-
                     ModelState.AddModelError("Password", item.Description);
                 }
-
             }
+
             return BadRequest(ModelState);
         }
 
+        // Login user and generate JWT token
         [HttpPost("Login")]
-        public async Task<IActionResult> Login(LoginDto UserFromReguest)
+        public async Task<IActionResult> Login(LoginDto userFromRequest)
         {
             if (ModelState.IsValid)
             {
-                //check 
+                // check 
                 ApplicationUser userFromDB =
-                      await userManager.FindByNameAsync(UserFromReguest.UserName);
+                      await userManager.FindByNameAsync(userFromRequest.UserName);
                 if (userFromDB != null)
                 {
                     bool found =
-                        await userManager.CheckPasswordAsync(userFromDB, UserFromReguest.Password);
+                        await userManager.CheckPasswordAsync(userFromDB, userFromRequest.Password);
                     if (found == true)
-                    {   
+                    {
+                        List<Claim> userClaims = new List<Claim>();
+                        userClaims.Add(new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()));
+                        userClaims.Add(new Claim(ClaimTypes.NameIdentifier, userFromDB.Id));
+                        userClaims.Add(new Claim(ClaimTypes.Name, userFromDB.UserName));
 
-                        List<Claim> UserClaims = new List<Claim>();
-                        UserClaims.Add(new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()));
-                        UserClaims.Add(new Claim(ClaimTypes.NameIdentifier, userFromDB.Id));
-                        UserClaims.Add(new Claim(ClaimTypes.Name, userFromDB.UserName));
-
-                        // مش فاهمها 
-                        var UserRoles = await userManager.GetRolesAsync(userFromDB);
-                        foreach (var roleNAme in UserRoles)
+                        // add roles to claims
+                        var userRoles = await userManager.GetRolesAsync(userFromDB);
+                        foreach (var roleName in userRoles)
                         {
-
-                            UserClaims.Add(new Claim(ClaimTypes.Role, roleNAme));
+                            userClaims.Add(new Claim(ClaimTypes.Role, roleName));
                         }
-                        //   
 
-                        var SignInKey = 
-                            new SymmetricSecurityKey(Encoding.UTF8.GetBytes
-                            (config["JWT:SecrityKey"]));
+                        var signInKey =
+                            new SymmetricSecurityKey(Encoding.UTF8.GetBytes(config["JWT:SecurityKey"]));
 
-                        SigningCredentials signingCred = 
-                            new SigningCredentials
-                            (SignInKey, SecurityAlgorithms.HmacSha256);
+                        SigningCredentials signingCred =
+                            new SigningCredentials(signInKey, SecurityAlgorithms.HmacSha256);
+
                         // design token
                         JwtSecurityToken mytoken = new JwtSecurityToken(
-                            audience: config["JWT:AudianceIP"],
-                            issuer:   config["JWT:IssuerIP"],
+                            audience: config["JWT:AudienceIP"],
+                            issuer: config["JWT:IssuerIP"],
                             expires: DateTime.Now.AddHours(1),
-                            claims: UserClaims,
-                            signingCredentials :signingCred
-                            );
+                            claims: userClaims,
+                            signingCredentials: signingCred
+                        );
 
                         // generate token response
                         return Ok(new
                         {
                             token = new JwtSecurityTokenHandler().WriteToken(mytoken),
-                            expiration = DateTime.Now.AddHours(1) //mytoken.ValidTo
+                            expiration = DateTime.Now.AddHours(1) // mytoken.ValidTo
                         });
-
-                        // generate token
                     }
-                    ModelState.AddModelError("UserName", "UserName OR Password InVaild");
-
+                    ModelState.AddModelError("UserName", "UserName OR Password Invalid");
                 }
             }
             return BadRequest();
-
-            
-
-
         }
     }
-
-        }
-    
+}
